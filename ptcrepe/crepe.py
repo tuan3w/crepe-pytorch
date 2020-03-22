@@ -2,6 +2,7 @@ import os
 import sys
 from pathlib import Path
 
+import librosa
 import numpy as np
 import torch
 import torch.nn as nn
@@ -52,10 +53,9 @@ class CREPE(nn.Module):
 
         self.linear = nn.Linear(64*capacity_multiplier, 360)
         self.load_weight(model_capacity)
-        self.eval()
         
     def load_weight(self, model_capacity):
-        root = Path(__file__).parent
+        root = Path(os.path.dirname(__file__)).parent
         filename = "{}/models/crepe-{}.pth".format(root, model_capacity)
         self.load_state_dict(torch.load(filename))
 
@@ -123,9 +123,11 @@ class CREPE(nn.Module):
     def process_file(self, file, output=None, viterbi=False, 
                      center=True, step_size=10, save_plot=False, batch_size=128):
         try:
-            audio, sr = torchaudio.load(file)
+            audio, sr = librosa.load(file, sr=16000)
+            audio = torch.FloatTensor(audio)
         except ValueError:
             print("CREPE-pytorch : Could not read", file, file=sys.stderr)
+            return
 
         with torch.no_grad():
             time, frequency, confidence, activation = self.predict(
@@ -136,12 +138,13 @@ class CREPE(nn.Module):
                 batch_size=batch_size,
                 )
 
-        time, frequency, confidence, activation = time.numpy(), frequency.numpy(), confidence.numpy(), activation.numpy()
+        time, frequency, confidence, activation = time.cpu().numpy(), frequency.cpu().numpy(), confidence.cpu().numpy(), activation.cpu().numpy()
 
-        f0_file = os.path.join(output, os.path.basename(os.path.splitext(file)[0])) + ".f0.csv"
-        f0_data = np.vstack([time, frequency, confidence]).transpose()
-        np.savetxt(f0_file, f0_data, fmt=['%.3f', '%.3f', '%.6f'], delimiter=',',
-                header='time,frequency,confidence', comments='')
+        if output:
+            f0_file = os.path.join(output, os.path.basename(os.path.splitext(file)[0])) + ".f0.csv"
+            f0_data = np.vstack([time, frequency, confidence]).transpose()
+            np.savetxt(f0_file, f0_data, fmt=['%.3f', '%.3f', '%.6f'], delimiter=',',
+                    header='time,frequency,confidence', comments='')
 
         # save the salience visualization in a PNG file
         if save_plot:
@@ -155,3 +158,6 @@ class CREPE(nn.Module):
             image = inferno(salience.transpose())
 
             imwrite(plot_file, (255 * image).astype(np.uint8))
+        
+        if not output:
+            return time, frequency, confidence, activation

@@ -9,14 +9,19 @@ CREPE is a monophonic pitch tracker based on a deep convolutional neural network
 ## Usage
 
 ```python
-import crepe
 import torch
-device = torch.device(0)
-cr = crepe.CREPE("full").to(device)
-cr.predict("path/to/audio.file", "path/to/output/directory/", )
+
+# valid model capacity can be 'full', 'large', 'medium', 'small', 'tiny'
+model = torch.hub.load('tuan3w/crepe-pytorch', 'load_crepe', 'full')
+model.eval()
+wav = torch.rand(1, 2000)
+predict = model.predict(x, 16000)
+
+# predict from file
+model.process_file('path/to/audio/file', output=None)
 ```
 
-## WIP
+
 
 
 
