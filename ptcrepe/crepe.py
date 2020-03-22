@@ -1,9 +1,14 @@
+import os
+import sys
+from pathlib import Path
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torchaudio
-import os, sys
+
 from .utils import *
-import numpy as np
+
 
 class ConvBlock(nn.Module):
     def __init__(self, f, w, s, in_channels):
@@ -50,10 +55,9 @@ class CREPE(nn.Module):
         self.eval()
         
     def load_weight(self, model_capacity):
-        download_weights(model_capacity)
-        package_dir = os.path.dirname(os.path.realpath(__file__))
-        filename = "crepe-{}.pth".format(model_capacity)
-        self.load_state_dict(torch.load(os.path.join(package_dir, filename)))
+        root = Path(__file__).parent
+        filename = "{}/models/crepe-{}.pth".format(root, model_capacity)
+        self.load_state_dict(torch.load(filename))
 
     def forward(self, x):
         # x : shape (batch, sample)
@@ -151,14 +155,3 @@ class CREPE(nn.Module):
             image = inferno(salience.transpose())
 
             imwrite(plot_file, (255 * image).astype(np.uint8))
-
-
-if __name__ == "__main__":
-    cr = CREPE().cuda()
-    import glob
-    files = glob.glob("../../ddsp/data/violin/*.wav")
-    # files = ["../../ddsp/data/violin/VI.+Double.wav"]
-    target = "../../ddsp/data/violin/f0_0.004/"
-    from tqdm import tqdm
-    for file in tqdm(files):
-        cr.process_file(file, target, step_size=4, viterbi=True)
